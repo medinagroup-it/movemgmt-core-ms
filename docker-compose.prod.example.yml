@@ -1,0 +1,77 @@
+# Production compose example.
+# Do not commit real production secrets.
+#
+# For local smoke testing before pushing to GHCR:
+#   docker build -t movemgmt-core-ms:local .
+#   docker compose -f docker-compose.prod.example.yml run --rm movemgmt-core-ms-migrate
+#   docker compose -f docker-compose.prod.example.yml up -d movemgmt-core-ms
+#
+# For production, set MOVEMGMT_CORE_MS_IMAGE to the immutable GHCR image tag, for example:
+#   MOVEMGMT_CORE_MS_IMAGE=ghcr.io/<owner>/movemgmt-core-ms:<sha>
+
+services:
+  movemgmt-core-ms-migrate:
+    image: ${MOVEMGMT_CORE_MS_IMAGE:-movemgmt-core-ms:local}
+    restart: "no"
+    user: "1000:1000"
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./movemgmt-core-ms.env
+    environment:
+      NODE_ENV: development
+      STORAGE_ROOT_PATH: /app/storage
+      # DATABASE_URL_FILE: /run/secrets/movemgmt_database_url
+      # JWT_SECRET_FILE: /run/secrets/movemgmt_jwt_secret
+      # CARGOS_CONFIG_SECRET_FILE: /run/secrets/movemgmt_cargos_config_secret
+    command: ["sh", "-lc", "npx prisma migrate deploy"]
+    volumes:
+      - C:/move-storage/movemgmt:/app/storage
+    secrets:
+      - movemgmt_database_url
+      - movemgmt_jwt_secret
+      - movemgmt_cargos_config_secret
+
+  movemgmt-core-ms:
+    image: ${MOVEMGMT_CORE_MS_IMAGE:-movemgmt-core-ms:local}
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./movemgmt-core-ms.env
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      STORAGE_ROOT_PATH: /app/storage
+      # DATABASE_URL_FILE: /run/secrets/movemgmt_database_url
+      # JWT_SECRET_FILE: /run/secrets/movemgmt_jwt_secret
+      # CARGOS_CONFIG_SECRET_FILE: /run/secrets/movemgmt_cargos_config_secret
+    volumes:
+      - C:/move-storage/movemgmt:/app/storage
+    secrets:
+      - movemgmt_database_url
+      - movemgmt_jwt_secret
+      - movemgmt_cargos_config_secret
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.movemgmt-core-ms.rule=Host(`moveon.medinagroup.it`) && PathPrefix(`/api`)
+      - traefik.http.routers.movemgmt-core-ms.entrypoints=websecure
+      - traefik.http.routers.movemgmt-core-ms.tls=true
+      - traefik.http.middlewares.movemgmt-core-ms-strip.stripprefix.prefixes=/api
+      - traefik.http.routers.movemgmt-core-ms.middlewares=movemgmt-core-ms-strip
+      - traefik.http.services.movemgmt-core-ms.loadbalancer.server.port=3000
+
+secrets:
+  movemgmt_database_url:
+    file: ./secrets/database_url.txt
+  movemgmt_jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  movemgmt_cargos_config_secret:
+    file: ./secrets/cargos_config_secret.txt

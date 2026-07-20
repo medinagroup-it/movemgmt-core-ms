@@ -1,0 +1,44 @@
+name: Validate Backend
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: movemgmt
+          POSTGRES_PASSWORD: movemgmt_test_password
+          POSTGRES_DB: movemgmt_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U movemgmt -d movemgmt_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://movemgmt:movemgmt_test_password@localhost:5432/movemgmt_test?schema=public
+      JWT_SECRET: test_jwt_secret_change_me_32_chars_minimum
+      CARGOS_CONFIG_SECRET: test_cargos_secret_change_me_32_chars
+      CORS_ORIGIN: http://localhost:5173
+      STORAGE_ROOT_PATH: ${{ runner.temp }}/movemgmt-storage
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build

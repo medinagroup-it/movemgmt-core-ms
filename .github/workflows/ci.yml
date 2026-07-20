@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: movemgmt_test
+          POSTGRES_USER: movemgmt
+          POSTGRES_PASSWORD: movemgmt_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U movemgmt -d movemgmt_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      DATABASE_URL: postgresql://movemgmt:movemgmt_test_password@127.0.0.1:5432/movemgmt_test?schema=public
+      JWT_SECRET: ci-only-jwt-secret-with-at-least-thirty-two-characters
+      JWT_EXPIRES_IN: 1h
+      JWT_ISSUER: movemgmt-core-ms-ci
+      JWT_AUDIENCE: movemgmt-fe-ci
+      CARGOS_CONFIG_SECRET: ci-only-cargos-secret-with-at-least-thirty-two-characters
+      CORS_ORIGIN: http://localhost:5173
+      STORAGE_ROOT_PATH: /tmp/movemgmt-storage
+      LOG_LEVEL: silent
+      SWAGGER_ENABLED: "false"
+      TRUST_PROXY: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Build container image
+        run: docker build --pull --tag movemgmt-core-ms:ci .

@@ -1,0 +1,28 @@
+# Allow-list build context: keep Docker builds deterministic and avoid sending secrets.
+*
+
+!package.json
+!package-lock.json
+!.npmrc
+!tsconfig.json
+!Dockerfile
+!.env.example
+
+!src
+!src/**
+!prisma
+!prisma/**
+
+# Never send local/generated/runtime data.
+.env
+.env.*
+!.env.example
+node_modules
+dist
+coverage
+storage
+.git
+.github
+*.log
+npm-debug.log*
+*.tsbuildinfo

@@ -1,0 +1,621 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum VehicleType { 
+  AUTO 
+  FURGONE 
+}
+
+enum VehicleStatus { 
+  DISPONIBILE 
+NOLEGGIATO 
+MANUTENZIONE 
+NON_DISPONIBILE 
+}
+
+enum FuelType { 
+  BENZINA 
+  DIESEL 
+  GPL 
+  METANO 
+  IBRIDA 
+  ELETTRICA 
+}
+
+enum BookingStatus { 
+  BOZZA 
+  CONFERMATA 
+  ANNULLATA 
+  IN_CORSO 
+  CONCLUSA 
+}
+
+enum PaymentMethod {
+  CONTANTI
+  CARTA_CREDITO
+  CARTA_DEBITO
+  BONIFICO
+  ASSEGNO
+  ALTRO
+}
+
+enum DepositPaymentMethod {
+  CONTANTI
+  CARTA
+  BONIFICO
+}
+
+enum DamageStatus { 
+  APERTO 
+  RIPARATO
+}
+
+enum Gender { 
+  M 
+  F 
+}
+
+enum AccountStatus { 
+  ATTIVO 
+  DISATTIVO 
+  SCADUTO 
+}
+
+enum ExtraCostType { 
+  IMPORTO_FISSO 
+  PERCENTUALE 
+}
+
+enum CostMode {
+  IMPORTO_FISSO
+  PERCENTUALE
+}
+
+enum PurchaseMethod {
+  LEASING
+  NOLEGGIO
+  ACQUISTO
+}
+
+enum DocumentType {
+  CIE_FRONT
+  CIE_BACK
+  DRIVING_LICENSE_FRONT
+  DRIVING_LICENSE_BACK
+  SIGNED_CONTRACT
+  CONTRACT_PDF
+  OTHER
+}
+
+model Company {
+  id                    String    @id @default(uuid())
+  nomeSocieta           String
+  ragioneSociale        String
+  partitaIva            String    @unique
+  codiceFiscale         String    @unique
+  indirizzoSedeLegale   String
+  codiceUnivoco         String
+  email                 String    @unique
+  accounts              Account[]
+  clients               Client[]
+  billingData           BillingData[]
+  vehicles              Vehicle[]
+  bookings              Booking[]
+  bookingServices       BookingAdditionalService[]
+  damages               VehicleDamage[]
+  coverages             InsuranceCoverage[]
+  mileagePackages       MileagePackage[]
+  additionalServices    AdditionalService[]
+  rentalSettings        RentalSettings?
+  operators             Operator[]
+  fines                 Fine[]
+  contractTemplates     ContractTemplate[]
+  contractDocuments     ContractDocument[]
+  documents             DocumentAsset[]
+  cargosPortalConfig    CargosPortalConfig?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([partitaIva])
+}
+
+model Account {
+  id           String        @id @default(uuid())
+  companyId    String
+  company      Company       @relation(fields: [companyId], references: [id])
+  email        String        @unique
+  passwordHash String
+  stato        AccountStatus @default(ATTIVO)
+  dataScadenza DateTime
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([companyId])
+  @@index([email])
+  @@index([stato])
+}
+
+model Client {
+  companyId                  String
+  company                    Company   @relation(fields: [companyId], references: [id])
+  id                         String    @id @default(uuid())
+  nome                       String
+  cognome                    String
+  sesso                      Gender
+  dataNascita                DateTime
+  luogoNascita               String
+  codiceFiscale              String
+  indirizzoResidenza         String
+  luogoRilascioCartaIdentita String
+  numeroCartaIdentita        String
+  dataRilascioCartaIdentita  DateTime?
+  dataScadenzaCartaIdentita  DateTime?
+  luogoRilascioPatente       String
+  numeroPatente              String
+  dataRilascioPatente        DateTime?
+  dataScadenzaPatente        DateTime?
+  telefono                   String
+  email                      String?
+  bookings                   Booking[] @relation("PrimaryDriverBookings")
+  additionalDriverBookings   Booking[] @relation("AdditionalDriverBookings")
+  billingData                BillingData[]
+  createdAt                  DateTime  @default(now())
+  createdBy                  String
+  updatedAt                  DateTime  @updatedAt
+  updatedBy                  String?
+  deletedAt                  DateTime?
+  deletedBy                  String?
+
+  @@unique([companyId, codiceFiscale])
+  @@unique([companyId, numeroCartaIdentita])
+  @@unique([companyId, numeroPatente])
+  @@index([companyId])
+  @@index([cognome, nome])
+  @@index([telefono])
+  @@index([deletedAt])
+}
+
+model BillingData {
+  companyId             String
+  company               Company   @relation(fields: [companyId], references: [id])
+  id                    String    @id @default(uuid())
+  clienteId             String
+  cliente               Client    @relation(fields: [clienteId], references: [id])
+  partitaIva            String?
+  codiceFiscale         String
+  ragioneSociale        String
+  indirizzoSedeLegale   String
+  codiceUnivoco         String?
+  pec                   String?
+  email                 String?
+  bookings              Booking[]
+  createdAt             DateTime  @default(now())
+  createdBy             String
+  updatedAt             DateTime  @updatedAt
+  updatedBy             String?
+  deletedAt             DateTime?
+  deletedBy             String?
+
+  @@index([companyId])
+  @@index([clienteId])
+  @@index([ragioneSociale])
+  @@index([deletedAt])
+}
+
+model Vehicle {
+  companyId            String
+  company              Company        @relation(fields: [companyId], references: [id])
+  id                   String         @id @default(uuid())
+  tipo                 VehicleType
+  marca                String
+  modello              String
+  targa                String
+  dataImmatricolazione DateTime
+  alimentazione        FuelType
+  costoGiornaliero     Decimal        @db.Decimal(10, 2)
+  lunghezza            Decimal?       @db.Decimal(10, 2)
+  larghezza            Decimal?       @db.Decimal(10, 2)
+  altezza              Decimal?       @db.Decimal(10, 2)
+  lunghezzaInterna     Decimal?       @db.Decimal(10, 2)
+  larghezzaInterna     Decimal?       @db.Decimal(10, 2)
+  altezzaInterna       Decimal?       @db.Decimal(10, 2)
+  postiAuto            Int?
+  metodoAcquisto       PurchaseMethod?
+  canoneMensile        Decimal?       @db.Decimal(10, 2)
+  importoVeicolo       Decimal?       @db.Decimal(10, 2)
+  franchigiaRca        Decimal?       @db.Decimal(10, 2)
+  franchigiaRcaTipo    CostMode?      @default(IMPORTO_FISSO)
+  franchigiaKasko      Decimal?       @db.Decimal(10, 2)
+  franchigiaKaskoTipo  CostMode?      @default(IMPORTO_FISSO)
+  scopertoFurtoIncendio Decimal?      @db.Decimal(10, 2)
+  scopertoFurtoIncendioTipo CostMode? @default(IMPORTO_FISSO)
+  compagniaAssicurativa String?
+  dataScadenzaAssicurazione DateTime?
+  importoAssicurazione Decimal?       @db.Decimal(10, 2)
+  stato                VehicleStatus  @default(DISPONIBILE)
+  kmAttuali            Int?
+  bookings             Booking[]
+  damages              VehicleDamage[]
+  fines                Fine[]
+  createdAt            DateTime       @default(now())
+  createdBy            String
+  updatedAt            DateTime       @updatedAt
+  updatedBy            String?
+  deletedAt            DateTime?
+  deletedBy            String?
+
+  @@unique([companyId, targa])
+  @@index([companyId])
+  @@index([targa])
+  @@index([marca, modello])
+  @@index([stato])
+  @@index([deletedAt])
+}
+
+model InsuranceCoverage {
+  companyId               String
+  company                 Company   @relation(fields: [companyId], references: [id])
+  id                      String    @id @default(uuid())
+  nome                    String
+  costoImportoFisso       Decimal?  @db.Decimal(10, 2)
+  costoPercentuale        Decimal?  @db.Decimal(5, 2)
+  costo                   Decimal?  @db.Decimal(10, 2)
+  costoTipo               CostMode? @default(IMPORTO_FISSO)
+  franchigiaRca           Decimal?  @db.Decimal(10, 2)
+  franchigiaRcaTipo       CostMode? @default(IMPORTO_FISSO)
+  franchigiaKasko         Decimal?  @db.Decimal(10, 2)
+  franchigiaKaskoTipo     CostMode? @default(IMPORTO_FISSO)
+  franchigiaFurtoIncendio Decimal?  @db.Decimal(10, 2)
+  scopertoFurtoIncendio   Decimal?  @db.Decimal(10, 2)
+  scopertoFurtoIncendioTipo CostMode? @default(IMPORTO_FISSO)
+  bookings                Booking[]
+  createdAt               DateTime  @default(now())
+  createdBy               String
+  updatedAt               DateTime  @updatedAt
+  updatedBy               String?
+  deletedAt               DateTime?
+  deletedBy               String?
+
+  @@unique([companyId, nome])
+  @@index([companyId])
+  @@index([deletedAt])
+}
+
+model MileagePackage {
+  companyId         String
+  company           Company   @relation(fields: [companyId], references: [id])
+  id                String    @id @default(uuid())
+  nome              String
+  chilometraggio    Int?
+  costoImportoFisso Decimal?  @db.Decimal(10, 2)
+  costoPercentuale  Decimal?  @db.Decimal(5, 2)
+  costo             Decimal?  @db.Decimal(10, 2)
+  costoTipo         CostMode? @default(IMPORTO_FISSO)
+  attivo            Boolean   @default(true)
+  bookings          Booking[]
+  createdAt         DateTime  @default(now())
+  createdBy         String
+  updatedAt         DateTime  @updatedAt
+  updatedBy         String?
+  deletedAt         DateTime?
+  deletedBy         String?
+
+  @@unique([companyId, nome])
+  @@index([companyId])
+  @@index([deletedAt])
+}
+
+model AdditionalService {
+  companyId         String
+  company           Company   @relation(fields: [companyId], references: [id])
+  id                String    @id @default(uuid())
+  nome              String
+  descrizione       String?
+  costoImportoFisso Decimal?  @db.Decimal(10, 2)
+  costoPercentuale  Decimal?  @db.Decimal(5, 2)
+  costo             Decimal?  @db.Decimal(10, 2)
+  costoTipo         CostMode? @default(IMPORTO_FISSO)
+  attivo            Boolean   @default(true)
+  bookings          BookingAdditionalService[]
+  createdAt         DateTime  @default(now())
+  createdBy         String
+  updatedAt         DateTime  @updatedAt
+  updatedBy         String?
+  deletedAt         DateTime?
+  deletedBy         String?
+
+  @@unique([companyId, nome])
+  @@index([companyId])
+  @@index([deletedAt])
+}
+
+model RentalSettings {
+  companyId                            String   @id
+  company                              Company  @relation(fields: [companyId], references: [id])
+  costoConducenteAggiuntivoImportoFisso Decimal? @db.Decimal(10, 2)
+  costoConducenteAggiuntivoPercentuale  Decimal? @db.Decimal(5, 2)
+  costoConducenteAggiuntivo             Decimal? @db.Decimal(10, 2)
+  costoConducenteAggiuntivoTipo         CostMode? @default(IMPORTO_FISSO)
+  cauzioneStandard                       Decimal? @db.Decimal(10, 2)
+  costoKmEccedenza                       Decimal? @db.Decimal(10, 2)
+  penaleCarburante                       Decimal? @db.Decimal(10, 2)
+  createdAt                            DateTime @default(now())
+  createdBy                            String
+  updatedAt                            DateTime @updatedAt
+  updatedBy                            String?
+}
+
+model Operator {
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id])
+  id        String    @id @default(uuid())
+  nome      String
+  cognome   String?
+  telefono  String?
+  email     String?
+  accountId String?   @unique
+  attivo    Boolean   @default(true)
+  bookings  Booking[]
+  createdAt DateTime  @default(now())
+  createdBy String
+  updatedAt DateTime  @updatedAt
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+
+  @@index([companyId])
+  @@index([nome, cognome])
+  @@index([email])
+  @@index([deletedAt])
+}
+
+model Booking {
+  companyId                   String
+  company                     Company        @relation(fields: [companyId], references: [id])
+  id                          String         @id @default(uuid())
+  clienteId                   String
+  cliente                     Client         @relation("PrimaryDriverBookings", fields: [clienteId], references: [id])
+  conducenteAggiuntivoId       String?
+  conducenteAggiuntivo         Client?        @relation("AdditionalDriverBookings", fields: [conducenteAggiuntivoId], references: [id])
+  billingDataId               String?
+  billingData                 BillingData?   @relation(fields: [billingDataId], references: [id])
+  veicoloId                   String
+  veicolo                     Vehicle        @relation(fields: [veicoloId], references: [id])
+  dataPrenotazione            DateTime       @default(now())
+  dataEmissioneFattura        DateTime?
+  dataInizioContratto         DateTime
+  dataFineContratto           DateTime
+  prezzo                      Decimal        @db.Decimal(10, 2)
+  metodoPagamento             PaymentMethod?
+  chilometraggioGiornaliero   Int?
+  mileagePackageId            String?
+  mileagePackage              MileagePackage? @relation(fields: [mileagePackageId], references: [id])
+  nomeOperatore               String
+  operatorId                  String?
+  operator                    Operator?      @relation(fields: [operatorId], references: [id])
+  coperturaAssicurativa       String?
+  coperturaAssicurativaId     String?
+  copertura                   InsuranceCoverage? @relation(fields: [coperturaAssicurativaId], references: [id])
+  serviziAggiuntivi           BookingAdditionalService[]
+  stato                       BookingStatus  @default(CONFERMATA)
+  kmInizio                    Int?
+  note                        String?
+  consegnaEffettuataAt        DateTime?
+  importoCauzione             Decimal?       @db.Decimal(10, 2)
+  metodoPagamentoCauzione     DepositPaymentMethod?
+  codicePreautorizzazioneCauzione String?
+  livelloCarburanteConsegna   Int?
+  kmConsegna                  Int?
+  riconsegnaEffettuataAt      DateTime?
+  livelloCarburanteRiconsegna Int?
+  kmRiconsegna                Int?
+  cauzioneRestituita          Boolean?
+  cauzioneTrattenuta          Boolean?
+  noteRiconsegna              String?
+  kmEccedenza                 Int?
+  importoPenaleKm             Decimal?       @db.Decimal(10, 2)
+  importoPenaleCarburante     Decimal?       @db.Decimal(10, 2)
+  importoPenali               Decimal?       @db.Decimal(10, 2)
+  metodoPagamentoPenali       PaymentMethod?
+  fines                       Fine[]
+  createdAt                   DateTime       @default(now())
+  createdBy                   String
+  updatedAt                   DateTime       @updatedAt
+  updatedBy                   String?
+  deletedAt                   DateTime?
+  deletedBy                   String?
+
+  @@index([companyId])
+  @@index([clienteId])
+  @@index([conducenteAggiuntivoId])
+  @@index([billingDataId])
+  @@index([veicoloId])
+  @@index([dataInizioContratto, dataFineContratto])
+  @@index([stato])
+  @@index([metodoPagamento])
+  @@index([deletedAt])
+}
+
+model BookingAdditionalService {
+  companyId           String
+  company             Company           @relation(fields: [companyId], references: [id])
+  id                  String            @id @default(uuid())
+  bookingId           String
+  booking             Booking           @relation(fields: [bookingId], references: [id])
+  additionalServiceId String
+  additionalService   AdditionalService @relation(fields: [additionalServiceId], references: [id])
+  createdAt           DateTime          @default(now())
+  createdBy           String
+
+  @@unique([bookingId, additionalServiceId])
+  @@index([companyId])
+  @@index([bookingId])
+  @@index([additionalServiceId])
+}
+
+model Fine {
+  companyId       String
+  company         Company   @relation(fields: [companyId], references: [id])
+  id              String    @id @default(uuid())
+  veicoloId       String
+  veicolo         Vehicle   @relation(fields: [veicoloId], references: [id])
+  bookingId       String?
+  booking         Booking?  @relation(fields: [bookingId], references: [id])
+  targa           String
+  dataMulta       DateTime
+  importo         Decimal   @db.Decimal(10, 2)
+  dataNotifica    DateTime
+  luogoInfrazione String
+  dataRinotifica  DateTime?
+  note            String?
+  createdAt       DateTime  @default(now())
+  createdBy       String
+  updatedAt       DateTime  @updatedAt
+  updatedBy       String?
+  deletedAt       DateTime?
+  deletedBy       String?
+
+  @@index([companyId])
+  @@index([veicoloId])
+  @@index([bookingId])
+  @@index([dataMulta])
+  @@index([deletedAt])
+}
+
+model VehicleDamage {
+  companyId       String
+  company         Company      @relation(fields: [companyId], references: [id])
+  id              String       @id @default(uuid())
+  veicoloId       String
+  veicolo         Vehicle      @relation(fields: [veicoloId], references: [id])
+  stato           DamageStatus @default(APERTO)
+  note            String?
+  x               Int
+  y               Int
+  dataAggiunta    DateTime     @default(now())
+  dataRiparazione DateTime?
+  createdAt       DateTime     @default(now())
+  createdBy       String
+  updatedAt       DateTime     @updatedAt
+  updatedBy       String?
+  deletedAt       DateTime?
+  deletedBy       String?
+
+  @@index([companyId])
+  @@index([veicoloId])
+  @@index([stato])
+  @@index([deletedAt])
+}
+
+
+
+model CargosPortalConfig {
+  companyId        String    @id
+  company          Company   @relation(fields: [companyId], references: [id])
+  username         String
+  passwordEncrypted String
+  apiKeyEncrypted String
+  createdAt        DateTime  @default(now())
+  createdBy        String
+  updatedAt        DateTime  @updatedAt
+  updatedBy        String?
+  deletedAt        DateTime?
+  deletedBy        String?
+
+  @@index([deletedAt])
+}
+
+model ContractTemplate {
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id])
+  id        String    @id @default(uuid())
+  code      String
+  name      String
+  html      String
+  version   Int       @default(1)
+  isDefault Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  createdBy String
+  updatedAt DateTime  @updatedAt
+  updatedBy String?
+  deletedAt DateTime?
+  deletedBy String?
+  documents ContractDocument[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([isDefault])
+  @@index([deletedAt])
+}
+
+model ContractDocument {
+  companyId       String
+  company         Company           @relation(fields: [companyId], references: [id])
+  id              String            @id @default(uuid())
+  templateId      String?
+  template        ContractTemplate? @relation(fields: [templateId], references: [id])
+  templateCode    String
+  templateName    String
+  templateVersion Int
+  bookingId       String?
+  clientId        String?
+  html            String
+  fileName        String
+  pdfPath         String
+  documentAssetId String?
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  createdBy       String
+  updatedAt       DateTime          @updatedAt
+  updatedBy       String?
+  deletedAt       DateTime?
+  deletedBy       String?
+
+  @@index([companyId])
+  @@index([templateCode])
+  @@index([bookingId])
+  @@index([clientId])
+  @@index([documentAssetId])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+
+model DocumentAsset {
+  companyId       String
+  company         Company      @relation(fields: [companyId], references: [id])
+  id              String       @id @default(uuid())
+  type            DocumentType
+  originalName    String?
+  fileName        String
+  mimeType        String
+  sizeBytes       Int
+  storageProvider String       @default("LOCAL_FILESYSTEM")
+  storagePath     String
+  checksumSha256  String
+  bookingId       String?
+  clientId        String?
+  contractDocumentId String?
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  createdBy       String
+  updatedAt       DateTime     @updatedAt
+  updatedBy       String?
+  deletedAt       DateTime?
+  deletedBy       String?
+
+  @@index([companyId])
+  @@index([type])
+  @@index([bookingId])
+  @@index([clientId])
+  @@index([contractDocumentId])
+  @@index([checksumSha256])
+  @@index([createdAt])
+  @@index([deletedAt])
+}

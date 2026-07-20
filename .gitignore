@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+coverage
+storage
+prisma/dev.db
+npm-debug.log*
+.DS_Store
+
+movemgmt-core-ms.env
