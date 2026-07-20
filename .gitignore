@@ -4,7 +4,7 @@ dist
 .env.*
 !.env.example
 coverage
-storage
+/storage/
 prisma/dev.db
 npm-debug.log*
 .DS_Store
