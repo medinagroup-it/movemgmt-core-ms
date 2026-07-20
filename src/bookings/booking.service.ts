@@ -107,7 +107,7 @@ function calculateReturnPenalties(
   };
 }
 
-async function hydrateBookingOperationalFields<T extends any>(
+async function hydrateBookingOperationalFields<T>(
   companyId: string,
   bookings: T[],
 ): Promise<T[]> {
@@ -142,12 +142,12 @@ async function hydrateBookingOperationalFields<T extends any>(
       ...booking,
       ...(byId.get(booking.id) ?? {}),
     }));
-  } catch (_) {
+  } catch {
     return bookings;
   }
 }
 
-async function hydrateBookingOperationalField<T extends any>(
+async function hydrateBookingOperationalField<T>(
   companyId: string,
   booking: T | null,
 ): Promise<T | null> {
@@ -178,7 +178,7 @@ async function getLastReturnedBookingForVehicle(
       LIMIT 1
     `);
     return rows[0] ?? null;
-  } catch (_) {
+  } catch {
     return null;
   }
 }
@@ -324,15 +324,20 @@ function bookingData(
   status: BookingStatus,
   companyId: string,
 ) {
-  const {
-    nuovoCliente,
-    nuovoConducenteAggiuntivo,
-    nuoviDatiFatturazione,
-    serviziAggiuntiviIds,
-    stato,
-    ...rest
-  } = data;
-  return { ...rest, ...resolved, companyId, stato: status };
+  const rest = { ...data };
+
+  delete rest.nuovoCliente;
+  delete rest.nuovoConducenteAggiuntivo;
+  delete rest.nuoviDatiFatturazione;
+  delete rest.serviziAggiuntiviIds;
+  delete rest.stato;
+
+  return {
+    ...rest,
+    ...resolved,
+    companyId,
+    stato: status,
+  };
 }
 async function createBookingWithStatus(
   companyId: string,

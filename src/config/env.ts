@@ -21,7 +21,7 @@ function readEnvFileValue(name: string): string | undefined {
   if (!filePath) return undefined;
   try {
     return fs.readFileSync(filePath, 'utf8').trim();
-  } catch (error) {
+  } catch {
     throw new Error(`Impossibile leggere ${name}_FILE: ${filePath}`);
   }
 }
